@@ -9,17 +9,27 @@
 #import "ChiquitoViewController.h"
 #import <AVFoundation/AVFoundation.h>
 #import <AudioToolbox/AudioToolbox.h>
+#import <CoreMotion/CoreMotion.h>
 
 @interface ChiquitoViewController () <AVAudioPlayerDelegate>
 @property (weak, nonatomic) IBOutlet UIImageView *chiquitoImageView;
 @property (strong, nonatomic) NSTimer *pecadorTimer;
 @property (nonatomic, strong) AVAudioPlayer *player;
 @property (strong, nonatomic) NSArray *imagesArray;
-
+@property (strong, nonatomic) CMMotionManager *motionManager;
 @property (nonatomic) BOOL isTalking;
 @end
 
 @implementation ChiquitoViewController
+
+- (CMMotionManager *)motionManager {
+    if (!_motionManager) {
+        _motionManager = [[CMMotionManager alloc] init];
+        _motionManager.accelerometerUpdateInterval = .2;
+    }
+    
+    return _motionManager;
+}
 
 - (NSArray *)imagesArray {
     if (!_imagesArray) {
@@ -56,6 +66,26 @@
     doubleTap.numberOfTapsRequired = 1;
     [self.chiquitoImageView addGestureRecognizer:doubleTap];
     [self startPecador];
+    [self.motionManager startAccelerometerUpdatesToQueue:[NSOperationQueue currentQueue]
+                                             withHandler:^(CMAccelerometerData *accelerometerData, NSError *error) {
+                                                 [self checkAcelerometer:accelerometerData.acceleration];
+                                             }];
+}
+
+- (void)checkAcelerometer:(CMAcceleration)acceleration {
+    if ([self isInGround:acceleration]) {
+        [self stopPecador];
+    } else if (!self.isTalking && [self isUpsideDown:acceleration]) {
+        [self startPecador];
+    }
+}
+
+- (BOOL) isInGround:(CMAcceleration)acceleration {
+    return (acceleration.z > 0.8 && acceleration.y < 0.2 && acceleration.x < 0.2);
+}
+
+- (BOOL) isUpsideDown:(CMAcceleration)acceleration {
+    return (acceleration.z < 0.2 && acceleration.y > 0.8 && acceleration.x < 0.2);
 }
 
 - (void)viewDidAppear:(BOOL)animated {
