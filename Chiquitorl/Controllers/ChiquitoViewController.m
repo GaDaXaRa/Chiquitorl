@@ -62,6 +62,13 @@
 {
     [super viewDidLoad];
     self.player.delegate = self;
+    [self enableProximity];
+    [self enableGestures];
+    [self startPecador];
+    [self startAccelerometer];
+}
+
+- (void)enableGestures {
     UITapGestureRecognizer *doubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(toggleSound:)];
     doubleTap.numberOfTouchesRequired = 2;
     doubleTap.numberOfTapsRequired = 1;
@@ -72,8 +79,15 @@
     [self.chiquitoImageView addGestureRecognizer:doubleTap];
     [self.chiquitoImageView addGestureRecognizer:swipeLeft];
     [self.chiquitoImageView addGestureRecognizer:swipeRight];
-    [self startPecador];
-    [self startAccelerometer];
+}
+
+- (void)enableProximity {
+    [[UIDevice currentDevice] setProximityMonitoringEnabled:YES];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(proximityNotification:) name:UIDeviceProximityStateDidChangeNotification object:nil];
+}
+
+- (void)proximityNotification:(NSNotification *)notification {
+    [self playIiihii];
 }
 
 - (void)startAccelerometer {
@@ -151,14 +165,23 @@
 
 - (void)playPecador {
     NSString *filePath = [[NSBundle mainBundle] pathForResource:@"Cobarde"ofType:@"wav"];
+    [self playSoundWithFilePath:filePath];
+    
+    [self vibrate];
+}
+
+- (void)playIiihii {
+    NSString *filePath = [[NSBundle mainBundle] pathForResource:@"Iiihii"ofType:@"wav"];
+    [self playSoundWithFilePath:filePath];
+}
+
+- (void)playSoundWithFilePath:(NSString *)filePath {
     NSError *err = nil;
     NSData *soundData = [[NSData alloc] initWithContentsOfFile:filePath options:NSDataReadingMapped error:&err];
     
     self.player = [[AVAudioPlayer alloc] initWithData:soundData error:&err];
     
     [self.player play];
-    
-    [self vibrate];
 }
 
 - (void)vibrate {
@@ -201,24 +224,28 @@
 
 - (void) useCamera {
     if ([UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypeCamera]) {
-        UIImagePickerController *imagePicker = [[UIImagePickerController alloc] init];
-        imagePicker.delegate = self;
-        imagePicker.sourceType = UIImagePickerControllerSourceTypeCamera;
-        imagePicker.mediaTypes = @[(NSString *)kUTTypeImage];
-        imagePicker.allowsEditing = NO;
-        [self presentViewController:imagePicker animated:YES completion:nil];
+        [self presentViewController:[self buildImagePickerControllerWithType:UIImagePickerControllerSourceTypeCamera]
+                           animated:YES
+                         completion:nil];
     }
 }
 
 - (void) useCameraRoll {
     if ([UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypeSavedPhotosAlbum])  {
-        UIImagePickerController *imagePicker = [[UIImagePickerController alloc] init];
-        imagePicker.delegate = self;
-        imagePicker.sourceType = UIImagePickerControllerSourceTypeSavedPhotosAlbum;
-        imagePicker.mediaTypes = @[(NSString *)kUTTypeImage];
-        imagePicker.allowsEditing = NO;
-        [self presentViewController:imagePicker animated:YES completion:nil];
+        [self presentViewController:[self buildImagePickerControllerWithType:UIImagePickerControllerSourceTypeSavedPhotosAlbum]
+                           animated:YES
+                         completion:nil];
     }
+}
+
+- (UIImagePickerController *)buildImagePickerControllerWithType:(UIImagePickerControllerSourceType)type {
+    UIImagePickerController *imagePicker = [[UIImagePickerController alloc] init];
+    imagePicker.delegate = self;
+    imagePicker.sourceType = type;
+    imagePicker.mediaTypes = @[(NSString *)kUTTypeImage];
+    imagePicker.allowsEditing = NO;
+    
+    return imagePicker;
 }
 
 - (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary *)info {
