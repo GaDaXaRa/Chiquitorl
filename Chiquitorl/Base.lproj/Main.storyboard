@@ -19,15 +19,46 @@
                             <imageView contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" fixedFrame="YES" image="YesWeJarl.jpg" translatesAutoresizingMaskIntoConstraints="NO" id="ZuA-36-Kd8">
                                 <rect key="frame" x="0.0" y="0.0" width="320" height="568"/>
                                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                <gestureRecognizers/>
+                                <connections>
+                                    <outletCollection property="gestureRecognizers" destination="rQb-cf-76z" appends="YES" id="Y2x-Bo-gkh"/>
+                                    <outletCollection property="gestureRecognizers" destination="rQb-cf-76z" appends="YES" id="g5I-oq-DxX"/>
+                                    <outletCollection property="gestureRecognizers" destination="rQb-cf-76z" appends="YES" id="tYy-mH-DXW"/>
+                                    <outletCollection property="gestureRecognizers" destination="hrO-P2-lE0" appends="YES" id="8c8-E4-anp"/>
+                                    <outletCollection property="gestureRecognizers" destination="yA3-2S-h6d" appends="YES" id="SDq-ca-XVR"/>
+                                </connections>
                             </imageView>
                         </subviews>
                         <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="calibratedWhite"/>
                     </view>
                     <connections>
+                        <outlet property="accelerometerManager" destination="O1a-u9-4EL" id="m6q-Ij-ief"/>
                         <outlet property="chiquitoImageView" destination="ZuA-36-Kd8" id="3NF-4t-mwz"/>
+                        <outlet property="hardwareHelper" destination="9Kw-Xx-J76" id="FW8-Zd-5ZR"/>
+                        <outlet property="imagePickerHelper" destination="aVu-Bg-qhe" id="NnX-zR-ilt"/>
+                        <outlet property="soundsProvider" destination="rfb-n0-76h" id="rbV-2i-VGV"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="x5A-6p-PRh" sceneMemberID="firstResponder"/>
+                <tapGestureRecognizer numberOfTouchesRequired="2" id="rQb-cf-76z">
+                    <connections>
+                        <action selector="tapTwoFingers:" destination="vXZ-lx-hvc" id="EZ2-aC-XAx"/>
+                    </connections>
+                </tapGestureRecognizer>
+                <swipeGestureRecognizer direction="right" id="hrO-P2-lE0">
+                    <connections>
+                        <action selector="swipeRight:" destination="vXZ-lx-hvc" id="bcH-cP-Q48"/>
+                    </connections>
+                </swipeGestureRecognizer>
+                <swipeGestureRecognizer direction="left" id="yA3-2S-h6d">
+                    <connections>
+                        <action selector="swipeLeft:" destination="vXZ-lx-hvc" id="542-ex-5V6"/>
+                    </connections>
+                </swipeGestureRecognizer>
+                <customObject id="rfb-n0-76h" customClass="ChiquitoSoundsProvider"/>
+                <customObject id="9Kw-Xx-J76" customClass="DeviceHardwareHelper"/>
+                <customObject id="O1a-u9-4EL" customClass="AccelerometerManager"/>
+                <customObject id="aVu-Bg-qhe" customClass="ImagePickerHelper"/>
             </objects>
         </scene>
     </scenes>

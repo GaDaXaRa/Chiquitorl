@@ -7,46 +7,57 @@
 //
 
 #import "ChiquitoViewController.h"
-#import <AVFoundation/AVFoundation.h>
-#import <AudioToolbox/AudioToolbox.h>
-#import <CoreMotion/CoreMotion.h>
-#import <MobileCoreServices/MobileCoreServices.h>
+#import "ChiquitoImagesProvider.h"
+#import "ChiquitoSoundsProvider.h"
+#import "AccelerometerManager.h"
+#import "DeviceHardwareHelper.h"
+#import "ImagePickerHelper.h"
 
-@interface ChiquitoViewController () <AVAudioPlayerDelegate, UINavigationControllerDelegate, UIImagePickerControllerDelegate>
+@interface ChiquitoViewController () <AccelerometerDelegate, ChiquitoSoundDelegate, ImagePickerHelperDelegate>
+
 @property (weak, nonatomic) IBOutlet UIImageView *chiquitoImageView;
-@property (strong, nonatomic) NSTimer *pecadorTimer;
-@property (nonatomic, strong) AVAudioPlayer *player;
-@property (strong, nonatomic) NSArray *imagesArray;
-@property (strong, nonatomic) CMMotionManager *motionManager;
+
 @property (nonatomic) BOOL isTalking;
+@property (strong, nonatomic) NSTimer *pecadorTimer;
+
+@property (strong, nonatomic) ChiquitoImagesProvider *imageProvider;
+
+@property (strong, nonatomic) IBOutlet ChiquitoSoundsProvider *soundsProvider;
+@property (strong, nonatomic) IBOutlet DeviceHardwareHelper *hardwareHelper;
+@property (strong, nonatomic) IBOutlet AccelerometerManager *accelerometerManager;
+@property (strong, nonatomic) IBOutlet ImagePickerHelper *imagePickerHelper;
 @end
 
 @implementation ChiquitoViewController
 
-- (CMMotionManager *)motionManager {
-    if (!_motionManager) {
-        _motionManager = [[CMMotionManager alloc] init];
-        _motionManager.accelerometerUpdateInterval = .2;
-    }
-    
-    return _motionManager;
-}
+#pragma mark -
+#pragma mark Lazy getting
 
-- (NSArray *)imagesArray {
-    if (!_imagesArray) {
-        NSString *filePath = [[NSBundle mainBundle] pathForResource:@"chiquito-images" ofType:@"plist"];
-        _imagesArray = [[NSArray alloc] initWithContentsOfFile:filePath];
+- (ChiquitoImagesProvider *)imageProvider {
+    if(!_imageProvider) {
+        _imageProvider = [[ChiquitoImagesProvider alloc] initWithFileName:@"chiquito-images"];
     }
     
-    return _imagesArray;
+    return _imageProvider;
 }
 
 - (NSTimer *)pecadorTimer {
     if (!_pecadorTimer) {
-        _pecadorTimer = [NSTimer scheduledTimerWithTimeInterval:2 target:self selector:@selector(playPecador) userInfo:nil repeats:YES];
+        _pecadorTimer = [NSTimer scheduledTimerWithTimeInterval:2 target:self selector:@selector(playCobarde) userInfo:nil repeats:YES];
     }
     
     return _pecadorTimer;
+}
+
+#pragma mark -
+#pragma mark Gesture Actions
+
+- (IBAction)tapTwoFingers:(id)sender {
+    [self toggleSound:sender];
+}
+
+- (IBAction)swipeRight:(UISwipeGestureRecognizer *)sender {
+    [self.imagePickerHelper useCameraRoll];
 }
 
 - (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil
@@ -61,68 +72,56 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    self.player.delegate = self;
+    [self configureDelegates];
     [self enableProximity];
-    [self enableGestures];
+    [self.accelerometerManager startAccelerometer];
     [self startPecador];
-    [self startAccelerometer];
 }
 
-- (void)enableGestures {
-    UITapGestureRecognizer *doubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(toggleSound:)];
-    doubleTap.numberOfTouchesRequired = 2;
-    doubleTap.numberOfTapsRequired = 1;
-    UISwipeGestureRecognizer *swipeLeft = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(didSwipeLeft:)];
-    swipeLeft.direction = UISwipeGestureRecognizerDirectionLeft;
-    UISwipeGestureRecognizer *swipeRight = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(didSwipeRight:)];
-    swipeRight.direction = UISwipeGestureRecognizerDirectionRight;
-    [self.chiquitoImageView addGestureRecognizer:doubleTap];
-    [self.chiquitoImageView addGestureRecognizer:swipeLeft];
-    [self.chiquitoImageView addGestureRecognizer:swipeRight];
+- (void)configureDelegates
+{
+    self.soundsProvider.delegate = self;
+    self.accelerometerManager.delegate = self;
+    self.imagePickerHelper.delegate = self;
+}
+
+- (IBAction)swipeLeft:(UISwipeGestureRecognizer *)sender {
+    [self.imagePickerHelper useCamera];
 }
 
 - (void)enableProximity {
-    [[UIDevice currentDevice] setProximityMonitoringEnabled:YES];
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(proximityNotification:) name:UIDeviceProximityStateDidChangeNotification object:nil];
+    __weak typeof(self) weakSelf = self;
+    [self.hardwareHelper onProximityEventApproachDoThis:^{
+        [weakSelf playIiihii];
+    }];
+    
+    [self.hardwareHelper onProximityEventLeavingDoThis:^{
+        [weakSelf playIoPuta];
+    }];
 }
 
-- (void)proximityNotification:(NSNotification *)notification {
-    [self playIiihii];
-}
+#pragma mark -
+#pragma mark AccelerometerManagerDelegate
 
-- (void)startAccelerometer {
-    if (self.motionManager.isAccelerometerAvailable) {
-        [self.motionManager startAccelerometerUpdatesToQueue:[NSOperationQueue currentQueue]
-                                                 withHandler:^(CMAccelerometerData *accelerometerData, NSError *error) {
-                                                     [self checkAcelerometer:accelerometerData.acceleration];
-                                                 }];
-    }
-}
-
-- (void)checkAcelerometer:(CMAcceleration)acceleration {
-    if ([self isInGround:acceleration]) {
-        [self stopPecador];
-    } else if (!self.isTalking && [self isUpsideDown:acceleration]) {
+- (void)isUpsideDown {
+    if (!self.isTalking) {
         [self startPecador];
     }
 }
 
-- (BOOL) isInGround:(CMAcceleration)acceleration {
-    return (acceleration.z > 0.8 && acceleration.y < 0.2 && acceleration.x < 0.2);
+- (void)isFaceToGround {
+    [self stopPecador];
 }
 
-- (BOOL) isUpsideDown:(CMAcceleration)acceleration {
-    return (acceleration.z < 0.2 && acceleration.y > 0.8 && acceleration.x < 0.2);
+#pragma mark -
+#pragma mark ChiquitoSoundDelegate
+
+- (void)soundEffectDidFinishPlaying:(ChiquitoSoundsProvider *)chiquitoSound {
+    [DeviceHardwareHelper torchOff];
 }
 
-- (void)viewDidAppear:(BOOL)animated {
-    [super viewDidAppear:animated];
-    [self becomeFirstResponder];
-}
-
-- (void)viewWillDisappear:(BOOL)animated {
-    [self resignFirstResponder];
-    [super viewWillDisappear:animated];
+- (void)imagePickerHelper:(ImagePickerHelper *)imagePicker didSelecetImage:(UIImage *)image {
+    self.chiquitoImageView.image = image;
 }
 
 - (void)motionEnded:(UIEventSubtype)motion withEvent:(UIEvent *)event {
@@ -132,14 +131,7 @@
 }
 
 - (void) changeBackgorundImage {
-    UIImage *chiquitoImage = [UIImage imageNamed:[self.imagesArray objectAtIndex: arc4random() % [self.imagesArray count]]];
-    self.chiquitoImageView.image = chiquitoImage;
-}
-
-- (void)startPecador {
-    [self.pecadorTimer fire];
-    self.isTalking = YES;
-    [self toggleLED];
+    self.chiquitoImageView.image = [self.imageProvider randomImage];
 }
 
 - (void)toggleSound:(UITapGestureRecognizer *)recognizer {
@@ -150,113 +142,32 @@
     }
 }
 
-- (void)didSwipeLeft:(UISwipeGestureRecognizer *)recognizer {
-    [self useCamera];
-}
-
-- (void)didSwipeRight:(UISwipeGestureRecognizer *)recognizer {
-    [self useCameraRoll];
-}
-
-- (void)didReceiveMemoryWarning
-{
-    [super didReceiveMemoryWarning];
-}
-
-- (void)playPecador {
-    NSString *filePath = [[NSBundle mainBundle] pathForResource:@"Cobarde"ofType:@"wav"];
-    [self playSoundWithFilePath:filePath];
-    
-    [self vibrate];
-}
-
-- (void)playIiihii {
-    NSString *filePath = [[NSBundle mainBundle] pathForResource:@"Iiihii"ofType:@"wav"];
-    [self playSoundWithFilePath:filePath];
-}
-
-- (void)playSoundWithFilePath:(NSString *)filePath {
-    NSError *err = nil;
-    NSData *soundData = [[NSData alloc] initWithContentsOfFile:filePath options:NSDataReadingMapped error:&err];
-    
-    self.player = [[AVAudioPlayer alloc] initWithData:soundData error:&err];
-    
-    [self.player play];
-}
-
-- (void)vibrate {
-    AudioServicesPlaySystemSound(kSystemSoundID_Vibrate);
-}
-
-- (void) toggleLED {
-    AVCaptureDevice *device = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
-    [device lockForConfiguration:nil];
-    [device setTorchMode: self.isTalking ? AVCaptureTorchModeOn : AVCaptureTorchModeOff];
-    [device unlockForConfiguration];
+- (void)startPecador {
+    [self.pecadorTimer fire];
+    self.isTalking = YES;
 }
 
 - (void)stopPecador {
     [self.pecadorTimer invalidate];
     self.pecadorTimer = nil;
     self.isTalking = NO;
-    [self.player stop];
-    [self toggleLED];
 }
 
-/*
- #pragma mark - Navigation
- 
- // In a storyboard-based application, you will often want to do a little preparation before navigation
- - (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender
- {
- // Get the new view controller using [segue destinationViewController].
- // Pass the selected object to the new view controller.
- }
- */
-
-- (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player successfully:(BOOL)flag {
-    [self toggleLED];
+- (void)playCobarde {
+    NSString *filePath = [[NSBundle mainBundle] pathForResource:@"Cobarde"ofType:@"wav"];
+    [self.soundsProvider playSoundWithFilePath:filePath];
+    [DeviceHardwareHelper torchOn];
+    [DeviceHardwareHelper vibrate];
 }
 
-- (BOOL)canBecomeFirstResponder {
-    return YES;
+- (void)playIiihii {
+    NSString *filePath = [[NSBundle mainBundle] pathForResource:@"Iiihii"ofType:@"wav"];
+    [self.soundsProvider playSoundWithFilePath:filePath];
 }
 
-- (void) useCamera {
-    if ([UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypeCamera]) {
-        [self presentViewController:[self buildImagePickerControllerWithType:UIImagePickerControllerSourceTypeCamera]
-                           animated:YES
-                         completion:nil];
-    }
-}
-
-- (void) useCameraRoll {
-    if ([UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypeSavedPhotosAlbum])  {
-        [self presentViewController:[self buildImagePickerControllerWithType:UIImagePickerControllerSourceTypeSavedPhotosAlbum]
-                           animated:YES
-                         completion:nil];
-    }
-}
-
-- (UIImagePickerController *)buildImagePickerControllerWithType:(UIImagePickerControllerSourceType)type {
-    UIImagePickerController *imagePicker = [[UIImagePickerController alloc] init];
-    imagePicker.delegate = self;
-    imagePicker.sourceType = type;
-    imagePicker.mediaTypes = @[(NSString *)kUTTypeImage];
-    imagePicker.allowsEditing = NO;
-    
-    return imagePicker;
-}
-
-- (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary *)info {
-    NSString *mediaType = info[UIImagePickerControllerMediaType];
-    
-    [picker dismissViewControllerAnimated:YES completion:nil];
-    
-    if ([mediaType isEqualToString:(NSString *)kUTTypeImage]) {
-        self.chiquitoImageView.image = info[UIImagePickerControllerOriginalImage];
-        
-    }
+- (void)playIoPuta {
+    NSString *filePath = [[NSBundle mainBundle] pathForResource:@"Ioputarl"ofType:@"wav"];
+    [self.soundsProvider playSoundWithFilePath:filePath];
 }
 
 @end
