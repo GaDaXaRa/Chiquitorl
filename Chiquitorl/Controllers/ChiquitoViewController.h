@@ -1,5 +1,5 @@
 //
-//  ViewController.h
+//  ChiquitoViewController.h
 //  Chiquitorl
 //
 //  Created by Miguel Santiago Rodríguez on 09/07/14.
@@ -8,6 +8,6 @@
 
 #import <UIKit/UIKit.h>
 
-@interface ViewController : UIViewController
+@interface ChiquitoViewController : UIViewController
 
 @end
