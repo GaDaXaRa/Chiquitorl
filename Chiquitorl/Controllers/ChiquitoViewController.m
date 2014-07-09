@@ -10,8 +10,9 @@
 #import <AVFoundation/AVFoundation.h>
 #import <AudioToolbox/AudioToolbox.h>
 #import <CoreMotion/CoreMotion.h>
+#import <MobileCoreServices/MobileCoreServices.h>
 
-@interface ChiquitoViewController () <AVAudioPlayerDelegate>
+@interface ChiquitoViewController () <AVAudioPlayerDelegate, UINavigationControllerDelegate, UIImagePickerControllerDelegate>
 @property (weak, nonatomic) IBOutlet UIImageView *chiquitoImageView;
 @property (strong, nonatomic) NSTimer *pecadorTimer;
 @property (nonatomic, strong) AVAudioPlayer *player;
@@ -64,12 +65,24 @@
     UITapGestureRecognizer *doubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(toggleSound:)];
     doubleTap.numberOfTouchesRequired = 2;
     doubleTap.numberOfTapsRequired = 1;
+    UISwipeGestureRecognizer *swipeLeft = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(didSwipeLeft:)];
+    swipeLeft.direction = UISwipeGestureRecognizerDirectionLeft;
+    UISwipeGestureRecognizer *swipeRight = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(didSwipeRight:)];
+    swipeRight.direction = UISwipeGestureRecognizerDirectionRight;
     [self.chiquitoImageView addGestureRecognizer:doubleTap];
+    [self.chiquitoImageView addGestureRecognizer:swipeLeft];
+    [self.chiquitoImageView addGestureRecognizer:swipeRight];
     [self startPecador];
-    [self.motionManager startAccelerometerUpdatesToQueue:[NSOperationQueue currentQueue]
-                                             withHandler:^(CMAccelerometerData *accelerometerData, NSError *error) {
-                                                 [self checkAcelerometer:accelerometerData.acceleration];
-                                             }];
+    [self startAccelerometer];
+}
+
+- (void)startAccelerometer {
+    if (self.motionManager.isAccelerometerAvailable) {
+        [self.motionManager startAccelerometerUpdatesToQueue:[NSOperationQueue currentQueue]
+                                                 withHandler:^(CMAccelerometerData *accelerometerData, NSError *error) {
+                                                     [self checkAcelerometer:accelerometerData.acceleration];
+                                                 }];
+    }
 }
 
 - (void)checkAcelerometer:(CMAcceleration)acceleration {
@@ -123,6 +136,14 @@
     }
 }
 
+- (void)didSwipeLeft:(UISwipeGestureRecognizer *)recognizer {
+    [self useCamera];
+}
+
+- (void)didSwipeRight:(UISwipeGestureRecognizer *)recognizer {
+    [self useCameraRoll];
+}
+
 - (void)didReceiveMemoryWarning
 {
     [super didReceiveMemoryWarning];
@@ -160,15 +181,15 @@
 }
 
 /*
-#pragma mark - Navigation
-
-// In a storyboard-based application, you will often want to do a little preparation before navigation
-- (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender
-{
-    // Get the new view controller using [segue destinationViewController].
-    // Pass the selected object to the new view controller.
-}
-*/
+ #pragma mark - Navigation
+ 
+ // In a storyboard-based application, you will often want to do a little preparation before navigation
+ - (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender
+ {
+ // Get the new view controller using [segue destinationViewController].
+ // Pass the selected object to the new view controller.
+ }
+ */
 
 - (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player successfully:(BOOL)flag {
     [self toggleLED];
@@ -176,6 +197,39 @@
 
 - (BOOL)canBecomeFirstResponder {
     return YES;
+}
+
+- (void) useCamera {
+    if ([UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypeCamera]) {
+        UIImagePickerController *imagePicker = [[UIImagePickerController alloc] init];
+        imagePicker.delegate = self;
+        imagePicker.sourceType = UIImagePickerControllerSourceTypeCamera;
+        imagePicker.mediaTypes = @[(NSString *)kUTTypeImage];
+        imagePicker.allowsEditing = NO;
+        [self presentViewController:imagePicker animated:YES completion:nil];
+    }
+}
+
+- (void) useCameraRoll {
+    if ([UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypeSavedPhotosAlbum])  {
+        UIImagePickerController *imagePicker = [[UIImagePickerController alloc] init];
+        imagePicker.delegate = self;
+        imagePicker.sourceType = UIImagePickerControllerSourceTypeSavedPhotosAlbum;
+        imagePicker.mediaTypes = @[(NSString *)kUTTypeImage];
+        imagePicker.allowsEditing = NO;
+        [self presentViewController:imagePicker animated:YES completion:nil];
+    }
+}
+
+- (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary *)info {
+    NSString *mediaType = info[UIImagePickerControllerMediaType];
+    
+    [picker dismissViewControllerAnimated:YES completion:nil];
+    
+    if ([mediaType isEqualToString:(NSString *)kUTTypeImage]) {
+        self.chiquitoImageView.image = info[UIImagePickerControllerOriginalImage];
+        
+    }
 }
 
 @end
